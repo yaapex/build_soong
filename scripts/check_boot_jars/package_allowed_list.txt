@@ -272,6 +272,7 @@ com\.google\.wear\..*
 # OPLUS adds
 com\.oplus\..*
 net\.oneplus\..*
+com\.thundersoft\..*
 oplus\..*
 
 ###################################################

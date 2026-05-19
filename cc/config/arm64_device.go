@@ -28,38 +28,21 @@ var (
 	}
 
 	arm64ArchVariantCflags = map[string][]string{
-		"armv8-a": []string{
-			"-march=armv8-a",
-		},
-		"armv8-a-branchprot": []string{
-			"-march=armv8-a",
-			"-mbranch-protection=standard",
-		},
-		"armv8-2a": []string{
-			"-march=armv8.2-a",
-		},
-		"armv8-2a-dotprod": []string{
-			"-march=armv8.2-a+lse+fp16+dotprod",
-		},
-		// On ARMv9 and later, Pointer Authentication Codes (PAC) are mandatory,
-		// so -fstack-protector is unnecessary.
-		"armv9-a": []string{
-			"-march=armv9-a+crypto+nosve+dotprod+fp16+i8mm",
-			"-mbranch-protection=standard",
-			"-fno-stack-protector",
-		},
-		"armv9-2a": []string{
-			"-march=armv9.2-a",
-			"-mbranch-protection=standard",
-			"-fno-stack-protector",
-		},
-		"armv9-3a": []string{
-			"-march=armv9.3-a",
-			"-mbranch-protection=standard",
-			"-fno-stack-protector",
-		},
-		"armv9-4a": []string{
-			"-march=armv9.4-a",
+		"armv8-a":            {"-march=armv8-a"},
+		"armv8-a-branchprot": {"-march=armv8-a"},
+		"armv8-2a":           {"-march=armv8.2-a"},
+		"armv8-2a-dotprod":   {"-march=armv8.2-a+lse+fp16+dotprod"},
+		"armv8-5a":           {"-march=armv8.5-a"},
+		"armv8-7a":           {"-march=armv8.7-a"},
+		"armv9-a":            {"-march=armv9-a+crypto+nosve+dotprod+fp16+i8mm"},
+		"armv9-2a":           {"-march=armv9.2-a+crypto+nosve"},
+		"armv9-3a":           {"-march=armv9.3-a"},
+		"armv9-4a":           {"-march=armv9.4-a"},
+	}
+
+	arm64ArchFeatureCflags = map[string][]string{
+		// When Pointer Authentication Codes (PAC) are available, -fstack-protector is unnecessary.
+		"branchprot": {
 			"-mbranch-protection=standard",
 			"-fno-stack-protector",
 		},
@@ -69,8 +52,6 @@ var (
 		"-Wl,-z,separate-code",
 		"-Wl,-z,separate-loadable-segments",
 	}
-
-	arm64Lldflags = arm64Ldflags
 
 	arm64Cppflags = []string{}
 
@@ -117,11 +98,9 @@ var (
 )
 
 func init() {
-	pctx.StaticVariable("Arm64Ldflags", strings.Join(arm64Ldflags, " "))
-
-	pctx.VariableFunc("Arm64Lldflags", func(ctx android.PackageVarContext) string {
+	pctx.VariableFunc("Arm64Ldflags", func(ctx android.PackageVarContext) string {
 		maxPageSizeFlag := "-Wl,-z,max-page-size=" + ctx.Config().MaxPageSizeSupported()
-		flags := append(arm64Lldflags, maxPageSizeFlag)
+		flags := append(arm64Ldflags, maxPageSizeFlag)
 		return strings.Join(flags, " ")
 	})
 
@@ -188,7 +167,6 @@ type toolchainArm64 struct {
 	toolchain64Bit
 
 	ldflags         string
-	lldflags        string
 	toolchainCflags string
 }
 
@@ -216,10 +194,6 @@ func (t *toolchainArm64) Ldflags() string {
 	return t.ldflags
 }
 
-func (t *toolchainArm64) Lldflags() string {
-	return t.lldflags
-}
-
 func (t *toolchainArm64) ToolchainCflags() string {
 	return t.toolchainCflags
 }
@@ -237,15 +211,14 @@ func arm64ToolchainFactory(arch android.Arch) Toolchain {
 	toolchainCflags := []string{"${config.Arm64" + arch.ArchVariant + "VariantCflags}"}
 	toolchainCflags = append(toolchainCflags,
 		variantOrDefault(arm64CpuVariantCflagsVar, arch.CpuVariant))
+	for _, feature := range arch.ArchFeatures {
+		toolchainCflags = append(toolchainCflags, arm64ArchFeatureCflags[feature]...)
+	}
 
 	extraLdflags := variantOrDefault(arm64CpuVariantLdflags, arch.CpuVariant)
 	return &toolchainArm64{
 		ldflags: strings.Join([]string{
 			"${config.Arm64Ldflags}",
-			extraLdflags,
-		}, " "),
-		lldflags: strings.Join([]string{
-			"${config.Arm64Lldflags}",
 			extraLdflags,
 		}, " "),
 		toolchainCflags: strings.Join(toolchainCflags, " "),
